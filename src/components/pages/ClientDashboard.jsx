@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { collection, query, onSnapshot, doc, updateDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { auth } from '../../firebase/config';
 
 function ClientDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -104,8 +105,18 @@ function ClientDashboard() {
 
   const setupTicketListener = () => {
     try {
-      // Query all tickets
-      const q = query(collection(db, 'tickets'));
+      // Check if user is authenticated
+      if (!auth.currentUser) {
+        setError('Please sign in to view tickets');
+        setIsLoading(false);
+        return;
+      }
+
+      // Query tickets for the current user
+      const q = query(
+        collection(db, 'tickets'),
+        where('email', '==', auth.currentUser.email)
+      );
       
       const unsubscribe = onSnapshot(q, 
         (querySnapshot) => {
@@ -127,12 +138,14 @@ function ClientDashboard() {
                 project: data.project || 'General'
               });
             });
-            // Sort tickets by created date in memory
+            
+            // Sort tickets by created date
             ticketsData.sort((a, b) => {
               const dateA = a.created?.toDate?.() || new Date(a.created);
               const dateB = b.created?.toDate?.() || new Date(b.created);
               return dateB - dateA;
             });
+            
             setTickets(ticketsData);
             setError(null);
             setIsLoading(false);
